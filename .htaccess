@@ -1,0 +1,15 @@
+RewriteEngine On
+
+# Producao (subdominio): /pesquisas/public/... e /pesquisas/img/...
+RewriteRule ^pesquisas/(public/.*)$ $1 [L,NC]
+RewriteRule ^pesquisas/(img/.*)$ $1 [L,NC]
+
+# Local (path): /pesquisas/{slug}/public/... e /pesquisas/{slug}/img/...
+RewriteRule ^[a-z0-9-]+/(public/.*)$ $1 [L,NC]
+RewriteRule ^[a-z0-9-]+/(img/.*)$ $1 [L,NC]
+
+RewriteCond %{REQUEST_FILENAME} -f [OR]
+RewriteCond %{REQUEST_FILENAME} -d
+RewriteRule ^ - [L]
+
+RewriteRule ^ index.php [QSA,L]
