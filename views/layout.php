@@ -30,7 +30,8 @@ if ($tenantLogo !== '') {
     }
 }
 if ($tenantLogoUrl === '') {
-    $tenantLogoUrl = tenant_url('/img/logo-plansul.webp');
+    $fallbackLogo = tenant_slug() === 'dressler' ? '/img/logo-dressler-bpo.png' : '/img/logo-plansul.webp';
+    $tenantLogoUrl = tenant_url($fallbackLogo);
 }
 
 $faviconUrl = $tenantLogoUrl;
