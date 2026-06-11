@@ -42,3 +42,11 @@ http://localhost/pesquisas/plansul/responder
 ## Pre-requisito
 
 Questionario com status `publicada` no GESTH para o tenant (seed Plansul).
+
+## Convites (v1.1.12+)
+
+- Link individual: `/pesquisas/responder?token={uuid}` (tenant pelo subdominio).
+- Respostas gravam `convite_id` em `pesquisa_respostas_v2` / sessao v2.
+- GESTH v1.1.12+: gerar convites e enviar e-mail em **Pesquisas → Convites**.
+
+Deploy GESTH + este repo juntos apos rodar SQLs em `app/database/pesquisa-*` e `permissao-pesquisas-convites-mysql.sql` (ver `DEPLOY.md` secao 5 no repo GESTH).
