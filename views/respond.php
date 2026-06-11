@@ -14,8 +14,11 @@ $formErrors = $formErrors ?? [];
         <div class="alert alert-error"><?= e((string) $formErrors['_form']) ?></div>
     <?php endif; ?>
 
-    <form method="post" action="<?= e(tenant_url('/responder')) ?>" class="top-gap">
+    <form method="post" action="<?= e(tenant_url('/responder' . (!empty($conviteToken) ? '?token=' . urlencode((string) $conviteToken) : ''))) ?>" class="top-gap">
         <input type="hidden" name="_csrf" value="<?= e($csrf ?? '') ?>">
+        <?php if (!empty($conviteToken)): ?>
+            <input type="hidden" name="convite_token" value="<?= e((string) $conviteToken) ?>">
+        <?php endif; ?>
 
         <?php foreach ($questions as $question): ?>
             <?php

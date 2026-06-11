@@ -28,7 +28,7 @@ final class PesquisaRepository
             'SELECT *
              FROM pesquisas
              WHERE empresa_id = :empresa_id
-               AND status IN ("publicada", "aberta")
+               AND status = "publicada"
                AND (data_inicio IS NULL OR data_inicio <= :hoje1)
                AND (data_fim IS NULL OR data_fim >= :hoje2)
              ORDER BY id DESC
@@ -82,24 +82,77 @@ final class PesquisaRepository
         return $stmt->fetchAll() ?: [];
     }
 
+    public function findSurveyById(int $pesquisaId, int $empresaId): ?array
+    {
+        $stmt = $this->db->prepare(
+            'SELECT * FROM pesquisas
+             WHERE id = :id AND empresa_id = :empresa_id AND status = "publicada"
+             LIMIT 1'
+        );
+        $stmt->execute(['id' => $pesquisaId, 'empresa_id' => $empresaId]);
+        $row = $stmt->fetch();
+
+        return $row ?: null;
+    }
+
+    public function findConviteByToken(string $token, int $empresaId): ?array
+    {
+        $token = trim($token);
+        if ($token === '') {
+            return null;
+        }
+
+        $stmt = $this->db->prepare(
+            'SELECT c.*, p.status AS pesquisa_status, p.data_inicio, p.data_fim, p.versao, p.titulo, p.descricao, p.anonima
+             FROM pesquisa_convite c
+             INNER JOIN pesquisas p ON p.id = c.pesquisa_id
+             WHERE c.token = :token
+               AND c.empresa_id = :empresa_id
+               AND c.respondido = 0
+               AND p.status = "publicada"
+             LIMIT 1'
+        );
+        $stmt->execute(['token' => $token, 'empresa_id' => $empresaId]);
+        $row = $stmt->fetch();
+
+        return $row ?: null;
+    }
+
+    public function isSurveyOpen(array $survey): bool
+    {
+        $today = date('Y-m-d');
+        $inicio = $survey['data_inicio'] ?? null;
+        $fim = $survey['data_fim'] ?? null;
+
+        if ($inicio !== null && $inicio !== '' && $inicio > $today) {
+            return false;
+        }
+        if ($fim !== null && $fim !== '' && $fim < $today) {
+            return false;
+        }
+
+        return true;
+    }
+
     /**
      * @param array<int, array{texto?: ?string, numerico?: ?float, opcoes?: list<int>}> $answers keyed by snapshot_pergunta_id
      */
-    public function saveResponses(int $pesquisaId, int $empresaId, int $versao, string $token, array $answers): void
+    public function saveResponses(int $pesquisaId, int $empresaId, int $versao, string $token, array $answers, ?int $conviteId = null): void
     {
         $tokenHash = hash('sha256', $token);
 
         $this->db->beginTransaction();
         try {
             $stmtSessao = $this->db->prepare(
-                'INSERT INTO pesquisa_resposta_sessao (pesquisa_id, empresa_id, versao, token_hash, created_at)
-                 VALUES (:pesquisa_id, :empresa_id, :versao, :token_hash, NOW())'
+                'INSERT INTO pesquisa_resposta_sessao (pesquisa_id, empresa_id, versao, token_hash, convite_id, created_at)
+                 VALUES (:pesquisa_id, :empresa_id, :versao, :token_hash, :convite_id, NOW())'
             );
             $stmtSessao->execute([
                 'pesquisa_id' => $pesquisaId,
                 'empresa_id' => $empresaId,
                 'versao' => $versao,
                 'token_hash' => $tokenHash,
+                'convite_id' => $conviteId,
             ]);
             $sessaoId = (int) $this->db->lastInsertId();
 
@@ -125,6 +178,15 @@ final class PesquisaRepository
                     'valor_numerico' => $payload['numerico'] ?? null,
                     'valor_opcoes' => $opcoesJson,
                 ]);
+            }
+
+            if ($conviteId !== null && $conviteId > 0) {
+                $stmtConvite = $this->db->prepare(
+                    'UPDATE pesquisa_convite
+                     SET respondido = 1, sessao_id = :sessao_id, responded_at = NOW()
+                     WHERE id = :id AND respondido = 0'
+                );
+                $stmtConvite->execute(['sessao_id' => $sessaoId, 'id' => $conviteId]);
             }
 
             $this->db->commit();
