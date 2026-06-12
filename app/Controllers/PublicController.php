@@ -335,6 +335,9 @@ final class PublicController
     {
 
         $token = trim((string) ($fromPost ? ($_POST['convite_token'] ?? '') : ($_GET['token'] ?? '')));
+        if ($fromPost && $token === '') {
+            $token = trim((string) ($_GET['token'] ?? ''));
+        }
 
 
 

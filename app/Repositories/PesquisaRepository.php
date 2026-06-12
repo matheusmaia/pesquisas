@@ -180,20 +180,37 @@ final class PesquisaRepository
                 ]);
             }
 
-            if ($conviteId !== null && $conviteId > 0) {
-                $stmtConvite = $this->db->prepare(
-                    'UPDATE pesquisa_convite
-                     SET respondido = 1, sessao_id = :sessao_id, responded_at = NOW()
-                     WHERE id = :id AND respondido = 0'
-                );
-                $stmtConvite->execute(['sessao_id' => $sessaoId, 'id' => $conviteId]);
-            }
+            $this->marcarConviteRespondido($pesquisaId, $empresaId, $sessaoId, $token, $conviteId);
 
             $this->db->commit();
         } catch (Throwable $e) {
             $this->db->rollBack();
             throw $e;
         }
+    }
+
+    /** Marca convite como respondido por id e/ou token do link individual. */
+    private function marcarConviteRespondido(
+        int $pesquisaId,
+        int $empresaId,
+        int $sessaoId,
+        string $token,
+        ?int $conviteId
+    ): void {
+        $conviteId = (int) ($conviteId ?? 0);
+        $token = trim($token);
+        $stmt = $this->db->prepare(
+            'UPDATE pesquisa_convite
+                SET respondido = 1, sessao_id = ?, responded_at = NOW()
+              WHERE respondido = 0
+                AND pesquisa_id = ?
+                AND empresa_id = ?
+                AND (
+                    (? > 0 AND id = ?)
+                    OR (token = ? AND ? <> "")
+                )'
+        );
+        $stmt->execute([$sessaoId, $pesquisaId, $empresaId, $conviteId, $conviteId, $token, $token]);
     }
 
     public function countSubmissions(int $pesquisaId): int
