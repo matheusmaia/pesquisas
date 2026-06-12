@@ -107,7 +107,7 @@ final class PesquisaRepository
              FROM pesquisa_convite c
              INNER JOIN pesquisas p ON p.id = c.pesquisa_id
              WHERE c.token = :token
-               AND c.empresa_id = :empresa_id
+               AND p.empresa_id = :empresa_id
                AND c.respondido = 0
                AND p.status = "publicada"
              LIMIT 1'
@@ -139,6 +139,11 @@ final class PesquisaRepository
      */
     public function saveResponses(int $pesquisaId, int $empresaId, int $versao, string $token, array $answers, ?int $conviteId = null): void
     {
+        $token = trim($token);
+        if ($conviteId === null && $token !== '') {
+            $conviteId = $this->findConviteIdByToken($token, $pesquisaId);
+        }
+
         $tokenHash = hash('sha256', $token);
 
         $this->db->beginTransaction();
@@ -199,18 +204,39 @@ final class PesquisaRepository
     ): void {
         $conviteId = (int) ($conviteId ?? 0);
         $token = trim($token);
+        if ($conviteId <= 0 && $token !== '') {
+            $conviteId = $this->findConviteIdByToken($token, $pesquisaId);
+        }
+
         $stmt = $this->db->prepare(
             'UPDATE pesquisa_convite
                 SET respondido = 1, sessao_id = ?, responded_at = NOW()
               WHERE respondido = 0
                 AND pesquisa_id = ?
-                AND empresa_id = ?
                 AND (
                     (? > 0 AND id = ?)
                     OR (token = ? AND ? <> "")
                 )'
         );
-        $stmt->execute([$sessaoId, $pesquisaId, $empresaId, $conviteId, $conviteId, $token, $token]);
+        $stmt->execute([$sessaoId, $pesquisaId, $conviteId, $conviteId, $token, $token]);
+    }
+
+    private function findConviteIdByToken(string $token, int $pesquisaId): ?int
+    {
+        $token = trim($token);
+        if ($token === '' || $pesquisaId <= 0) {
+            return null;
+        }
+
+        $stmt = $this->db->prepare(
+            'SELECT id FROM pesquisa_convite
+             WHERE token = :token AND pesquisa_id = :pesquisa_id AND respondido = 0
+             LIMIT 1'
+        );
+        $stmt->execute(['token' => $token, 'pesquisa_id' => $pesquisaId]);
+        $id = $stmt->fetchColumn();
+
+        return $id !== false ? (int) $id : null;
     }
 
     public function countSubmissions(int $pesquisaId): int

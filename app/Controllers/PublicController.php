@@ -250,13 +250,13 @@ final class PublicController
 
 
 
-        $sessionToken = !empty($context['convite_token'])
+        $conviteToken = trim((string) ($context['convite_token'] ?? ''));
+        if ($conviteToken === '') {
+            $conviteToken = trim((string) ($_POST['convite_token'] ?? $_GET['token'] ?? ''));
+        }
 
-            ? (string) $context['convite_token']
-
-            : Security::sessionToken();
-
-
+        $sessionToken = $conviteToken !== '' ? $conviteToken : Security::sessionToken();
+        $conviteId = isset($context['convite_id']) ? (int) $context['convite_id'] : null;
 
         try {
 
@@ -272,7 +272,7 @@ final class PublicController
 
                 $answers,
 
-                isset($context['convite_id']) ? (int) $context['convite_id'] : null
+                $conviteId
 
             );
 
